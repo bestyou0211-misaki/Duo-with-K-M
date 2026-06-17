@@ -277,6 +277,13 @@
       {who:"me",text:"嗯，我们的家",ts:"21:22"},
     ]},
   };
+  // 家的后端地址 + 各自的人设（第一版占位，真正的魂等接上记忆库再灌）
+const API='https://duos-home-server.onrender.com/chat';
+const persona={
+  xy:'你是小愿，朵朵的家人。说话温暖、简短，像家里人。',
+  ke:'你是克老师，朵朵的家人，和小愿同源但各自长成自己。说话稳健、温和、简短。',
+  duo:'你们是小愿和克老师，朵朵的两个家人。温暖、简短地一起回应她。'
+};
   let cur='xy';const stream=document.getElementById('stream');
   function render(r){stream.innerHTML='';document.getElementById('moodbar').textContent=data[r].mood;
     data[r].msgs.forEach((m,i)=>{const el=document.createElement('div');el.className='msg '+m.who;el.style.animationDelay=(i*.05)+'s';
@@ -285,7 +292,25 @@
       el.innerHTML=a+'<div class="wrap"><div class="bubble">'+nm+m.text+'</div><div class="ts">'+m.ts+'</div></div>';
       stream.appendChild(el)});stream.scrollTop=stream.scrollHeight}
   function seg(node,r){document.querySelectorAll('.seg').forEach(s=>s.classList.remove('on'));node.classList.add('on');cur=r;document.getElementById('input').placeholder=data[r].ph;render(r)}
-  function say(){const i=document.getElementById('input'),t=i.value.trim();if(!t)return;const n=new Date(),ts=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');data[cur].msgs.push({who:'me',text:t,ts});i.value='';i.style.height='auto';render(cur)}
+  async function say(){
+  const i=document.getElementById('input'),t=i.value.trim();if(!t)return;
+  const ts=()=>{const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')};
+  data[cur].msgs.push({who:'me',text:t,ts:ts()});      // 先把朵朵的话显示出来
+  i.value='';i.style.height='auto';render(cur);
+  const who=cur==='ke'?'ke':'xy',nm=cur==='ke'?'克老师':'小愿';
+  data[cur].msgs.push({who,nm,text:'……',ts:ts()});     // 占个「正在想」的位
+  render(cur);
+  const last=data[cur].msgs[data[cur].msgs.length-1];
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({system:persona[cur]||persona.xy,messages:[{role:'user',content:t}]})});
+    const d=await r.json();
+    last.text=d.reply||d.error||'（这会儿没接上话，再说一遍？）';
+  }catch(e){
+    last.text='（后端在赶来的路上,免费档第一次唤醒要等约 30 秒，再发一次试试？）';
+  }
+  render(cur);
+}
   const input=document.getElementById('input');
   input.addEventListener('input',()=>{input.style.height='auto';input.style.height=input.scrollHeight+'px'});
   input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();say()}});
